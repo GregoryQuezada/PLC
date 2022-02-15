@@ -8,12 +8,13 @@ public class Token implements IToken{
 
 //    HashMap<String, Kind> map = new HashMap<>();
 
-
+    public static int[] endLine;
 
     private Kind kind;
     private String input;
     private int pos;
     private int length;
+    private SourceLocation loc = null;
 
     public Token(Kind kind, String input, int pos, int length) {
 
@@ -21,6 +22,7 @@ public class Token implements IToken{
         this.input = input;
         this.pos = pos;
         this.length = length;
+
 
 
 //        insertMap(new String[]{"string", "int", "float", "boolean", "color", "image", "void"}, Kind.TYPE);
@@ -48,6 +50,29 @@ public class Token implements IToken{
 //            map.put(key[i], value);
 //        }
 //    }
+    public void setSource() {
+        int line = 0;
+        int lineIndex = 0;
+
+        for (int i = 0; i < Lexer.endLinePos.size(); i++) {
+            if (pos > Lexer.endLinePos.get(i)){
+                line++;
+                lineIndex = Lexer.endLinePos.get(i);
+            } else {
+                i = Lexer.endLinePos.size();
+            }
+        }
+
+        if (line > 0) {
+            lineIndex++;
+        }
+
+        loc = new SourceLocation(line, pos - lineIndex);
+    }
+
+    public int getPos() {
+        return pos;
+    }
 
     @Override
     public Kind getKind() {
@@ -61,7 +86,11 @@ public class Token implements IToken{
 
     @Override
     public SourceLocation getSourceLocation() {
-        return null;
+        if (loc == null) {
+            setSource();
+        }
+
+        return loc;
     }
 
     @Override
@@ -99,4 +128,5 @@ public class Token implements IToken{
     public String getStringValue() {
         return null;
     }
+
 }

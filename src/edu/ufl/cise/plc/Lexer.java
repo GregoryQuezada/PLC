@@ -1,5 +1,6 @@
 package edu.ufl.cise.plc;
 
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.lang.Character;
@@ -13,6 +14,8 @@ public class Lexer implements ILexer {
 
     ArrayList<Token> token = new ArrayList<Token>();
 
+    public static ArrayList<Integer> endLinePos = new ArrayList<Integer>();
+
     public static enum State {
         START,
         IN_IDENT,
@@ -22,13 +25,21 @@ public class Lexer implements ILexer {
         IN_NUM,
         HAVE_EQ,
         HAVE_MINUS,
+        HAVE_LESS_THAN,
+        HAVE_GREATER_THAN,
+        HAVE_BANG
     }
 
     private State state = State.START;
+    private int arrayPos = -1;
+    private int startPos = 0;
+    private boolean loop = true;
 
     @Override
     public IToken next() throws LexicalException {
-        return null;
+        arrayPos++;
+        return token.get(arrayPos);
+
     }
 
     @Override
@@ -38,7 +49,7 @@ public class Lexer implements ILexer {
 
     public Lexer(String value) {
 
-        insertMap(new String[]{"string", "int", "float", "boolean", "color", "image", "void"}, IToken.Kind.TYPE);
+        insertMap(new String[]{"string", "int", "float", "boolean", "color", "image"}, IToken.Kind.TYPE);
 
         insertMap(new String[]{"getWidth", "getHeight"}, IToken.Kind.IMAGE_OP);
 
@@ -54,18 +65,31 @@ public class Lexer implements ILexer {
         map.put("fi", IToken.Kind.KW_FI);
         map.put("write", IToken.Kind.KW_WRITE);
         map.put("console", IToken.Kind.KW_CONSOLE);
+        map.put("void", IToken.Kind.KW_VOID);
 
         value = value + '\0';
 
-        while(true) {
+        int i = 0;
 
-            for (int i = 0; i < value.length(); i++) {
+        while(loop) {
+
+            //for (int i = 0; i < value.length(); i++) {
                 char ch = value.charAt(i);
 
                 switch (state) {
                     case START -> {
+                        startPos = i;
+
                         switch (ch) {
-                            case ' ', '\t', '\r' -> {
+                            case ' ', '\t' -> {
+                                i++;
+                            }
+                            case '\r', '\n' -> {
+                                endLinePos.add(i);
+
+                                i++;
+                            }
+                            case '#' -> {
                                 i++;
                             }
                             case '+' -> {
@@ -76,9 +100,73 @@ public class Lexer implements ILexer {
                                 state = State.HAVE_EQ;
                                 i++;
                             }
+                            case '&' -> {
+                                token.add(new Token(IToken.Kind.AND, value, i, 1));
+                                i++;
+                            }
+                            case '!' -> {
+                                state = State.HAVE_BANG;
+                                i++;
+                            }
+                            case ',' -> {
+                                token.add(new Token(IToken.Kind.COMMA, value, i, 1));
+                                i++;
+                            }
+                            case '/' -> {
+                                token.add(new Token(IToken.Kind.DIV, value, i, 1));
+                                i++;
+                            }
+                            case '>' -> {
+                                state = State.HAVE_GREATER_THAN;
+                                i++;
+                            }
+                            case '<' -> {
+                                state = State.HAVE_LESS_THAN;
+                                i++;
+                            }
+                            case '(' -> {
+                                token.add(new Token(IToken.Kind.LPAREN, value, startPos, 1));
+                                i++;
+                            }
+                            case '[' -> {
+                                token.add(new Token(IToken.Kind.LSQUARE, value, startPos, 1));
+                                i++;
+                            }
+                            case '-' -> {
+                                state = State.HAVE_MINUS;
+                                i++;
+                            }
+                            case '%' -> {
+                                token.add(new Token(IToken.Kind.MOD, value, startPos, 1));
+                                i++;
+                            }
+                            case '|' -> {
+                                token.add(new Token(IToken.Kind.OR, value, startPos, 1));
+                                i++;
+                            }
+                            case '^' -> {
+                                token.add(new Token(IToken.Kind.RETURN, value, startPos, 1));
+                                i++;
+                            }
+                            case ')' -> {
+                                token.add(new Token(IToken.Kind.RPAREN, value, startPos, 1));
+                                i++;
+                            }
+                            case ']' -> {
+                                token.add(new Token(IToken.Kind.RSQUARE, value, startPos, 1));
+                                i++;
+                            }
+                            case ';' -> {
+                                token.add(new Token(IToken.Kind.SEMI, value, startPos, 1));
+                                i++;
+                            }
+                            case '*' -> {
+                                token.add(new Token(IToken.Kind.TIMES, value, startPos, 1));
+                                i++;
+                            }
                             case '\0' -> {
                                 token.add(new Token(IToken.Kind.EOF, value, i, 1));
-                                return;
+                                loop = false;
                             }
                         }
                     }
@@ -88,35 +176,139 @@ public class Lexer implements ILexer {
                         }
                     }
                     case HAVE_ZERO-> {
-
+                        switch (ch) {
+                            case '.' -> {
+                                i++;
+                                state = State.HAVE_DOT;
+                            }
+                            default -> {
+                                token.add(new Token(IToken.Kind.INT_LIT, value, startPos, i - startPos));
+                                state = State.START;
+                            }
+                        }
                     }
                     case HAVE_DOT -> {
-
+                        switch (ch) {
+                            case '0', '1', '2', '3', '4', '5' , '6', '7', '8', '9' -> {
+                                i++;
+                                state = State.IN_FLOAT;
+                            }
+                            default -> {
+                                token.add(new Token(IToken.Kind.ERROR, value, startPos, i - startPos));
+                                state = State.START;
+                            }
+                        }
                     }
                     case IN_FLOAT -> {
-
+                        switch (ch) {
+                            case '0', '1', '2', '3', '4', '5' , '6', '7', '8', '9' -> {
+                                i++;
+                            }
+                            default -> {
+                                token.add(new Token(IToken.Kind.FLOAT_LIT, value, startPos, i - startPos));
+                                state = State.START;
+                            }
+                        }
                     }
                     case IN_NUM -> {
-
+                        switch (ch) {
+                            case '0', '1', '2', '3', '4', '5' , '6', '7', '8', '9' -> {
+                                i++;
+                            }
+                            case '.' -> {
+                                i++;
+                                state = State.HAVE_DOT;
+                            }
+                            default -> {
+                                token.add(new Token(IToken.Kind.INT_LIT, value, startPos, i - startPos));
+                                state = State.START;
+                            }
+                        }
                     }
                     case HAVE_EQ -> {
                         switch (ch) {
                             case '=' -> {
-                                token.add(new Token(IToken.Kind.EQUALS, value, i, 2));
+                                token.add(new Token(IToken.Kind.EQUALS, value, startPos, 2));
                                 i++;
+                                state = State.START;
                             }
                             default -> {
-                                throw new UnsupportedOperationException("Not a valid token: = ");
+                                token.add(new Token(IToken.Kind.ASSIGN, value, startPos, 1));
+                                state = State.START;
                             }
 
                         }
                     }
+                    case HAVE_BANG -> {
+                        switch (ch) {
+                            case '=' -> {
+                                token.add(new Token(IToken.Kind.NOT_EQUALS, value, startPos, 2));
+                                i++;
+                                state = State.START;
+                            }
+                            default -> {
+                                token.add(new Token(IToken.Kind.BANG, value, i, 1));
+                                state = State.START;
+                            }
+                        }
+                    }
                     case HAVE_MINUS -> {
-
+                        switch (ch) {
+                            case '>' -> {
+                                token.add(new Token(IToken.Kind.RARROW, value, startPos, 2));
+                                i++;
+                                state = State.START;
+                            }
+                            default -> {
+                                token.add(new Token(IToken.Kind.MINUS, value, startPos, 1));
+                                state = State.START;
+                            }
+                        }
+                    }
+                    case HAVE_GREATER_THAN -> {
+                        switch (ch) {
+                            case '=' -> {
+                                token.add(new Token(IToken.Kind.GE, value, startPos, 2));
+                                i++;
+                                state = State.START;
+                            }
+                            case '>' -> {
+                                token.add(new Token(IToken.Kind.RANGLE, value, startPos, 2));
+                                i++;
+                                state = State.START;
+                            }
+                            default -> {
+                                token.add(new Token(IToken.Kind.GT, value, startPos, 1));
+                                state = State.START;
+                            }
+                        }
+                    }
+                    case HAVE_LESS_THAN -> {
+                        switch (ch) {
+                            case '=' -> {
+                                token.add(new Token(IToken.Kind.LE, value, startPos, 2));
+                                i++;
+                                state = State.START;
+                            }
+                            case '<' -> {
+                                token.add(new Token(IToken.Kind.LANGLE, value, startPos, 2));
+                                i++;
+                                state = State.START;
+                            }
+                            case '-' -> {
+                                token.add(new Token(IToken.Kind.LARROW, value, startPos, 2));
+                                i++;
+                                state = State.START;
+                            }
+                            default -> {
+                                token.add(new Token(IToken.Kind.LT, value, startPos, 1));
+                                state = State.START;
+                            }
+                        }
                     }
                     default -> throw new IllegalStateException("State does not exist");
                 }
-            }
+            //}
 
         }
 
@@ -128,4 +320,24 @@ public class Lexer implements ILexer {
             map.put(key[i], value);
         }
     }
+
+//    public void getEndLinePos() {
+//        Token current = token.get(arrayPos);
+//        int curPos = current.getPos();
+//        int line = 0;
+//        int lineIndex = 0;
+//
+//        for (int i = 0; i < endLinePos.size(); i++) {
+//            if (curPos > endLinePos.get(i)){
+//                line++;
+//                lineIndex = endLinePos.get(i);
+//            } else {
+//                i = endLinePos.size();
+//            }
+//        }
+//
+//        token.get(arrayPos).setSource(line, curPos - lineIndex, this);
+//
+//
+//    }
 }
