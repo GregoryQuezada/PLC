@@ -27,7 +27,9 @@ public class Lexer implements ILexer {
         HAVE_MINUS,
         HAVE_LESS_THAN,
         HAVE_GREATER_THAN,
-        HAVE_BANG
+        HAVE_BANG,
+        HAVE_QUOTES,
+        COMMENT
     }
 
     private State state = State.START;
@@ -38,6 +40,22 @@ public class Lexer implements ILexer {
     @Override
     public IToken next() throws LexicalException {
         arrayPos++;
+
+        IToken.Kind tKind = token.get(arrayPos).getKind();
+
+        switch (tKind) {
+            case ERROR -> {
+                throw new LexicalException("Error token");
+            }
+            case INT_LIT -> {
+                try {
+                    token.get(arrayPos).getIntValue();
+                } catch (Exception e) {
+                    throw new LexicalException("Int too big");
+                }
+
+            }
+        }
         return token.get(arrayPos);
 
     }
@@ -80,99 +98,159 @@ public class Lexer implements ILexer {
                     case START -> {
                         startPos = i;
 
-                        switch (ch) {
-                            case ' ', '\t' -> {
-                                i++;
+                        if (Character.isJavaIdentifierStart(ch)) {
+                            state = State.IN_IDENT;
+                            i++;
+                        } else {
+                            switch (ch) {
+                                case ' ', '\t' -> {
+                                    i++;
+                                }
+                                case '\r', '\n' -> {
+                                    endLinePos.add(i);
+                                    i++;
+                                }
+                                case '#' -> {
+                                    state = State.COMMENT;
+                                    i++;
+                                }
+                                case '"' -> {
+                                    state = State.HAVE_QUOTES;
+                                    i++;
+                                }
+                                case '0' -> {
+                                    state = State.HAVE_ZERO;
+                                    i++;
+                                }
+                                case '1', '2', '3', '4', '5' , '6', '7', '8', '9' -> {
+                                    state = State.IN_NUM;
+                                    i++;
+                                }
+                                case '+' -> {
+                                    token.add(new Token(IToken.Kind.PLUS, value, i, 1));
+                                    i++;
+                                }
+                                case '=' -> {
+                                    state = State.HAVE_EQ;
+                                    i++;
+                                }
+                                case '&' -> {
+                                    token.add(new Token(IToken.Kind.AND, value, i, 1));
+                                    i++;
+                                }
+                                case '!' -> {
+                                    state = State.HAVE_BANG;
+                                    i++;
+                                }
+                                case ',' -> {
+                                    token.add(new Token(IToken.Kind.COMMA, value, i, 1));
+                                    i++;
+                                }
+                                case '/' -> {
+                                    token.add(new Token(IToken.Kind.DIV, value, i, 1));
+                                    i++;
+                                }
+                                case '>' -> {
+                                    state = State.HAVE_GREATER_THAN;
+                                    i++;
+                                }
+                                case '<' -> {
+                                    state = State.HAVE_LESS_THAN;
+                                    i++;
+                                }
+                                case '(' -> {
+                                    token.add(new Token(IToken.Kind.LPAREN, value, startPos, 1));
+                                    i++;
+                                }
+                                case '[' -> {
+                                    token.add(new Token(IToken.Kind.LSQUARE, value, startPos, 1));
+                                    i++;
+                                }
+                                case '-' -> {
+                                    state = State.HAVE_MINUS;
+                                    i++;
+                                }
+                                case '%' -> {
+                                    token.add(new Token(IToken.Kind.MOD, value, startPos, 1));
+                                    i++;
+                                }
+                                case '|' -> {
+                                    token.add(new Token(IToken.Kind.OR, value, startPos, 1));
+                                    i++;
+                                }
+                                case '^' -> {
+                                    token.add(new Token(IToken.Kind.RETURN, value, startPos, 1));
+                                    i++;
+                                }
+                                case ')' -> {
+                                    token.add(new Token(IToken.Kind.RPAREN, value, startPos, 1));
+                                    i++;
+                                }
+                                case ']' -> {
+                                    token.add(new Token(IToken.Kind.RSQUARE, value, startPos, 1));
+                                    i++;
+                                }
+                                case ';' -> {
+                                    token.add(new Token(IToken.Kind.SEMI, value, startPos, 1));
+                                    i++;
+                                }
+                                case '*' -> {
+                                    token.add(new Token(IToken.Kind.TIMES, value, startPos, 1));
+                                    i++;
+                                }
+                                case '\0' -> {
+                                    token.add(new Token(IToken.Kind.EOF, value, i, 1));
+                                    loop = false;
+                                }
+                                default -> {
+                                    token.add(new Token(IToken.Kind.ERROR, value, startPos, i - startPos));
+                                    i++;
+                                }
                             }
+                        }
+
+
+                    }
+                    case COMMENT -> {
+                        switch (ch) {
                             case '\r', '\n' -> {
                                 endLinePos.add(i);
-
                                 i++;
-                            }
-                            case '#' -> {
-                                i++;
-                            }
-                            case '+' -> {
-                                token.add(new Token(IToken.Kind.PLUS, value, i, 1));
-                                i++;
-                            }
-                            case '=' -> {
-                                state = State.HAVE_EQ;
-                                i++;
-                            }
-                            case '&' -> {
-                                token.add(new Token(IToken.Kind.AND, value, i, 1));
-                                i++;
-                            }
-                            case '!' -> {
-                                state = State.HAVE_BANG;
-                                i++;
-                            }
-                            case ',' -> {
-                                token.add(new Token(IToken.Kind.COMMA, value, i, 1));
-                                i++;
-                            }
-                            case '/' -> {
-                                token.add(new Token(IToken.Kind.DIV, value, i, 1));
-                                i++;
-                            }
-                            case '>' -> {
-                                state = State.HAVE_GREATER_THAN;
-                                i++;
-                            }
-                            case '<' -> {
-                                state = State.HAVE_LESS_THAN;
-                                i++;
-                            }
-                            case '(' -> {
-                                token.add(new Token(IToken.Kind.LPAREN, value, startPos, 1));
-                                i++;
-                            }
-                            case '[' -> {
-                                token.add(new Token(IToken.Kind.LSQUARE, value, startPos, 1));
-                                i++;
-                            }
-                            case '-' -> {
-                                state = State.HAVE_MINUS;
-                                i++;
-                            }
-                            case '%' -> {
-                                token.add(new Token(IToken.Kind.MOD, value, startPos, 1));
-                                i++;
-                            }
-                            case '|' -> {
-                                token.add(new Token(IToken.Kind.OR, value, startPos, 1));
-                                i++;
-                            }
-                            case '^' -> {
-                                token.add(new Token(IToken.Kind.RETURN, value, startPos, 1));
-                                i++;
-                            }
-                            case ')' -> {
-                                token.add(new Token(IToken.Kind.RPAREN, value, startPos, 1));
-                                i++;
-                            }
-                            case ']' -> {
-                                token.add(new Token(IToken.Kind.RSQUARE, value, startPos, 1));
-                                i++;
-                            }
-                            case ';' -> {
-                                token.add(new Token(IToken.Kind.SEMI, value, startPos, 1));
-                                i++;
-                            }
-                            case '*' -> {
-                                token.add(new Token(IToken.Kind.TIMES, value, startPos, 1));
-                                i++;
+                                state = State.START;
                             }
                             case '\0' -> {
                                 token.add(new Token(IToken.Kind.EOF, value, i, 1));
                                 loop = false;
                             }
+                            default -> {
+                                i++;
+                            }
+                        }
+                    }
+                    case HAVE_QUOTES -> {
+                        switch (ch) {
+                            case '"' -> {
+                                token.add(new Token(IToken.Kind.STRING_LIT, value, startPos, i - startPos));
+                                state = State.START;
+                                i++;
+                            }
+//                            case '\r', '\n' -> {
+//                                endLinePos.add(i);
+//                                i++;
+//                                state = State.START;
+//                            }
+                            default -> {
+                                i++;
+                            }
                         }
                     }
                     case IN_IDENT -> {
-                        switch (ch) {
-
+                        if (Character.isJavaIdentifierPart(ch)) {
+                            i++;
+                        }
+                        else {
+                            token.add(new Token(IToken.Kind.IDENT, value, startPos, i - startPos));
+                            state = State.START;
                         }
                     }
                     case HAVE_ZERO-> {
