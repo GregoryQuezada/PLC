@@ -256,8 +256,9 @@ public class Lexer implements ILexer {
                             i++;
                         }
                         else {
-                            token.add(new Token(IToken.Kind.IDENT, value, startPos, i - startPos));
+                            token.add(new Token(map.getOrDefault(value.substring(startPos, i), IToken.Kind.IDENT), value, startPos, i - startPos));
                             state = State.START;
+
                         }
                     }
                     case HAVE_ZERO-> {
