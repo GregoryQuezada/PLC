@@ -126,6 +126,13 @@ public class Token implements IToken{
 
     @Override
     public String getStringValue() {
+        if (kind == Kind.STRING_LIT) {
+
+        }
+        else {
+            throw new UnsupportedOperationException("Kind is not a STRING_LIT");
+        }
+
         return null;
     }
 

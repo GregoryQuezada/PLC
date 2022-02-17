@@ -55,6 +55,13 @@ public class Lexer implements ILexer {
                 }
 
             }
+            case FLOAT_LIT -> {
+                try {
+                    token.get(arrayPos).getFloatValue();
+                } catch (Exception e) {
+                    throw new LexicalException("Float too big");
+                }
+            }
         }
         return token.get(arrayPos);
 

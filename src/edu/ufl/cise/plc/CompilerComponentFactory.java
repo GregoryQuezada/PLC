@@ -12,5 +12,9 @@ public class CompilerComponentFactory {
 //		throw new UnsupportedOperationException(
 //				"edu.ufl.cise.plc.CompilerComponentFactory must be modified to return an instance of your lexer");
     }
+
+	public static IParser getParser(String input) {
+		return new Parser(input);
+	}
 	
 }
