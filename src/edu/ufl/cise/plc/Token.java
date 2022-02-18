@@ -127,13 +127,48 @@ public class Token implements IToken{
     @Override
     public String getStringValue() {
         if (kind == Kind.STRING_LIT) {
+            String in = getText();
+            String out = "";
 
+            for (int i = 0; i < in.length(); i++) {
+                char a = in.charAt(i);
+
+                switch(a) {
+                    case '\\' -> {
+                        out = out;
+                    }
+                    case '\n' -> {
+                        out = out + "\n";
+                    }
+                    case '\b' -> {
+                        out = out + "\b";
+                    }
+                    case '\t' -> {
+                        out = out + "\t";
+                    }
+                    case '\f' -> {
+                        out = out + "\f";
+                    }
+                    case '\r' -> {
+                        out = out + "\r";
+                    }
+                    case '\"' -> {
+                        out = out + "\"";
+                    }
+                    case '\'' -> {
+                        out = out + "\'";
+                    }
+                    default -> {
+                        out = out + a;
+                    }
+                }
+            }
+            return out;
         }
         else {
             throw new UnsupportedOperationException("Kind is not a STRING_LIT");
         }
 
-        return null;
     }
 
 }

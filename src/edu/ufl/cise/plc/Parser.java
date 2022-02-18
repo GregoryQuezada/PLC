@@ -8,19 +8,19 @@ public class Parser implements IParser{
     private IToken t;
 
     public Parser (String value) {
-        ILexer lexer = CompilerComponentFactory.getLexer(value);
+        lexer = CompilerComponentFactory.getLexer(value);
     }
 
     @Override
     public ASTNode parse() throws PLCException {
-        ASTNode tree;
+        t = lexer.next();
+         return expr();
 
-        return null;
     }
 
-    protected boolean isKind(IToken.Kind kind) {
-        return t.getKind() == kind;
-    }
+//    protected boolean isKind(IToken.Kind kind) {
+//        return t.getKind() == kind;
+//    }
 
     protected boolean isKind(IToken.Kind... kinds) {
         for (IToken.Kind k: kinds) {
@@ -31,24 +31,42 @@ public class Parser implements IParser{
         return false;
     }
 
-    public Expr expr() {
+    public Expr expr() throws PLCException {
         IToken firstToken = t;
-        Expr left = null;
-        Expr right = null;
+        Expr e = null;
+
+        if (isKind(IToken.Kind.KW_IF)) {
+            e = conditionalExpr();
+        }
+        else {
+            e = logicalOrExpr();
+        }
 
 
-        return null;
+
+        return e;
     }
 
     Expr conditionalExpr() throws PLCException {
+        IToken firstToken = t;
+        Expr expr0 = null;
+        Expr expr1 = null;
+        Expr expr2 = null;
 
         if (isKind(IToken.Kind.KW_IF)) {
             consume();
             match(IToken.Kind.LPAREN);
-
+            expr0 = expr();
+            match(IToken.Kind.RPAREN);
+            expr1 = expr();
+            match(IToken.Kind.KW_ELSE);
+            expr2 = expr();
+            match(IToken.Kind.KW_FI);
+        } else {
+            throw new SyntaxException("Expected KW_IF in conditionalExpr");
         }
 
-        return null;
+        return new ConditionalExpr(firstToken, expr0, expr1, expr2);
     }
 
     Expr logicalOrExpr() throws PLCException {
@@ -74,7 +92,8 @@ public class Parser implements IParser{
         Expr right = null;
         left = comparisonExpr();
 
-        while (isKind(IToken.Kind.AND)) {
+        while (isKind(IToken.Kind.AND))
+        {
             IToken op = t;
             consume();
             right = comparisonExpr();
@@ -90,7 +109,7 @@ public class Parser implements IParser{
         Expr right = null;
         left = additiveExpr();
 
-        while(isKind(IToken.Kind.LT, IToken.Kind.GT, IToken.Kind.EQUALS, IToken.Kind.NOT_EQUALS, IToken.Kind.LE, IToken.Kind.GE));
+        while (isKind(IToken.Kind.LT, IToken.Kind.GT, IToken.Kind.EQUALS, IToken.Kind.NOT_EQUALS, IToken.Kind.LE, IToken.Kind.GE))
         {
             IToken op = t;
             consume();
@@ -135,12 +154,43 @@ public class Parser implements IParser{
         return left;
     }
 
-    Expr unaryExpr() {
-        return null;
+    Expr unaryExpr() throws PLCException {
+        IToken firstToken = t;
+        Expr e = null;
+        Expr right = null;
+
+        if (isKind(IToken.Kind.BANG, IToken.Kind.MINUS, IToken.Kind.COLOR_OP, IToken.Kind.IMAGE_OP)){
+            IToken op = t;
+            consume();
+            right = unaryExpr();
+            e = new UnaryExpr(firstToken, op, right);
+        }
+        else {
+            e = unaryExprPostfix();
+        }
+//        while (isKind(IToken.Kind.BANG, IToken.Kind.MINUS, IToken.Kind.COLOR_OP, IToken.Kind.IMAGE_OP))
+//        {
+//            IToken op = t;
+//            e = unaryExpr();
+//        }
+
+        return e;
     }
 
-    Expr unaryExprPostfix() {
-        return null;
+    Expr unaryExprPostfix() throws PLCException {
+        IToken firstToken = t;
+        Expr e = null;
+        Expr right = null;
+
+        e = primaryExpr();
+
+
+        while (isKind(IToken.Kind.LSQUARE))
+        {
+            return new UnaryExprPostfix(firstToken, e, pixelSelector());
+        }
+
+        return e;
     }
 
     Expr primaryExpr() throws PLCException {
@@ -211,6 +261,8 @@ public class Parser implements IParser{
     }
 
     private void consume() throws PLCException {
-        lexer.next();
+        if (lexer.peek().getKind() != IToken.Kind.EOF ) {
+            t = lexer.next();
+        }
     }
 }

@@ -69,7 +69,7 @@ public class Lexer implements ILexer {
 
     @Override
     public IToken peek() throws LexicalException {
-        return null;
+        return token.get(arrayPos + 1);
     }
 
     public Lexer(String value) {
