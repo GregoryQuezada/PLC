@@ -153,7 +153,10 @@ public class Token implements IToken{
                         out = out + "\r";
                     }
                     case '\"' -> {
-                        out = out + "\"";
+                        if (i > 0) {
+                            out = out + "\"";
+                        }
+
                     }
                     case '\'' -> {
                         out = out + "\'";
