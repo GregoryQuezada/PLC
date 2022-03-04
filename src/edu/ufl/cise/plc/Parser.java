@@ -6,6 +6,7 @@ import java.util.ArrayList;
 
 public class Parser implements IParser{
 
+    private Program program;
     private ILexer lexer;
     private IToken t;
 
@@ -16,7 +17,8 @@ public class Parser implements IParser{
     @Override
     public ASTNode parse() throws PLCException {
         t = lexer.next();
-         return expr();
+        return program();
+        //return expr();
 
     }
 
