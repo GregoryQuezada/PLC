@@ -6,7 +6,6 @@ import java.util.ArrayList;
 
 public class Parser implements IParser{
 
-    private Program program;
     private ILexer lexer;
     private IToken t;
 
@@ -18,13 +17,9 @@ public class Parser implements IParser{
     public ASTNode parse() throws PLCException {
         t = lexer.next();
         return program();
-        //return expr();
 
     }
 
-//    protected boolean isKind(IToken.Kind kind) {
-//        return t.getKind() == kind;
-//    }
 
     protected boolean isKind(IToken.Kind... kinds) {
         for (IToken.Kind k: kinds) {
@@ -258,11 +253,7 @@ public class Parser implements IParser{
         else {
             e = unaryExprPostfix();
         }
-//        while (isKind(IToken.Kind.BANG, IToken.Kind.MINUS, IToken.Kind.COLOR_OP, IToken.Kind.IMAGE_OP))
-//        {
-//            IToken op = t;
-//            e = unaryExpr();
-//        }
+
 
         return e;
     }
@@ -391,6 +382,7 @@ public class Parser implements IParser{
 
         if (isKind(IToken.Kind.IDENT)) {
             str = t;
+            consume();
 
             if (isKind(IToken.Kind.LSQUARE)) {
                 p = pixelSelector();
