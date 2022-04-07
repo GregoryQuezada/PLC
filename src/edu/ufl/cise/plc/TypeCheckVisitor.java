@@ -61,7 +61,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 	@Override
 	public Object visitStringLitExpr(StringLitExpr stringLitExpr, Object arg) throws Exception {
 		//TODO:  implement this method
-		// Done?
+		// Done
 		stringLitExpr.setType(Type.STRING);
 		return Type.STRING;
 		//throw new UnsupportedOperationException("Unimplemented visit method.");
@@ -70,7 +70,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 	@Override
 	public Object visitIntLitExpr(IntLitExpr intLitExpr, Object arg) throws Exception {
 		//TODO:  implement this method
-		// Done?
+		// Done
 		intLitExpr.setType(Type.INT);
 		return Type.INT;
 		//throw new UnsupportedOperationException("Unimplemented visit method.");
@@ -85,7 +85,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 	@Override
 	public Object visitColorConstExpr(ColorConstExpr colorConstExpr, Object arg) throws Exception {
 		//TODO:  implement this method
-		// Done?
+		// Done
 		colorConstExpr.setType(Type.COLOR);
 		return Type.COLOR;
 		// throw new UnsupportedOperationException("Unimplemented visit method.");
@@ -146,7 +146,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 	@Override
 	public Object visitBinaryExpr(BinaryExpr binaryExpr, Object arg) throws Exception {
 		//TODO:  implement this method
-		// Done?
+		// Done
 		Kind op = binaryExpr.getOp().getKind();
 		Type leftType = (Type) binaryExpr.getLeft().visit(this, arg);
 		Type rightType = (Type) binaryExpr.getRight().visit(this, arg);
@@ -274,11 +274,10 @@ public class TypeCheckVisitor implements ASTVisitor {
 	@Override
 	public Object visitIdentExpr(IdentExpr identExpr, Object arg) throws Exception {
 		//TODO:  implement this method
-		// Done?
+		// Done
 		String name = identExpr.getText();
 		Declaration dec = symbolTable.lookup(name);
-		check(dec != null, identExpr, "undefined identifier" + name);
-		//check(dec.isInitialized(), identExpr, "using uninitialized variable in identExpr");
+		check(dec != null, identExpr, "undefined identifier " + name);
 		identExpr.setDec(dec);
 		Type resultType = dec.getType();
 		identExpr.setType(resultType);
@@ -290,7 +289,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 	@Override
 	public Object visitConditionalExpr(ConditionalExpr conditionalExpr, Object arg) throws Exception {
 		//TODO  implement this method
-		// Done?
+		// Done
 		Type condition = (Type) conditionalExpr.getCondition().visit(this, arg);
 		Type trueCase = (Type) conditionalExpr.getTrueCase().visit(this, arg);
 		Type falseCase = (Type) conditionalExpr.getFalseCase().visit(this, arg);
@@ -306,7 +305,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 	@Override
 	public Object visitDimension(Dimension dimension, Object arg) throws Exception {
 		//TODO  implement this method
-		// Done?
+		// Done
 		Type width = (Type) dimension.getWidth().visit(this, arg);
 		Type height = (Type) dimension.getHeight().visit(this, arg);
 		check(width == Type.INT && height == Type.INT, dimension, "both expressions of Dimension are not type INT");
@@ -344,12 +343,29 @@ public class TypeCheckVisitor implements ASTVisitor {
 	//Work incrementally and systematically, testing as you go.  
 	public Object visitAssignmentStatement(AssignmentStatement assignmentStatement, Object arg) throws Exception {
 		//TODO:  implement this method
+		// Done
 		String lhs = assignmentStatement.getName();
 		Declaration dec = symbolTable.lookup(lhs);
+		check(dec != null, assignmentStatement, "using undeclared variable in assignment statement called: " + lhs);
 		Type targetType = dec.getType();
-		check(dec.isInitialized(), assignmentStatement, "using uninitialized variable in assignment statement");
 
 		PixelSelector pixSelec = assignmentStatement.getSelector();
+
+
+		if (pixSelec != null) {
+			//pixSelec.visit(this, arg);
+			check(pixSelec.getX() instanceof IdentExpr && pixSelec.getY() instanceof IdentExpr, assignmentStatement, "pixel selector variables on left side of assignment statement are not IdentExpr");
+			Declaration tempx = new VarDeclaration(pixSelec.getX().getFirstToken(), new NameDef(pixSelec.getX().getFirstToken(), "int", pixSelec.getX().getText()), null, null);
+			Declaration tempy = new VarDeclaration(pixSelec.getX().getFirstToken(), new NameDef(pixSelec.getY().getFirstToken(), "int", pixSelec.getY().getText()), null, null);
+
+			boolean insertedX = symbolTable.insert(pixSelec.getX().getText(), tempx);
+			check(insertedX, assignmentStatement, "variable " + pixSelec.getX().getText() + " already declared");
+			boolean insertedY = symbolTable.insert(pixSelec.getY().getText(), tempy);
+			check(insertedY, assignmentStatement, "variable " + pixSelec.getY().getText() + " already declared");
+
+			pixSelec.visit(this, arg);
+		}
+
 		Expr expr = assignmentStatement.getExpr();
 		Type exprType = (Type) assignmentStatement.getExpr().visit(this, arg);
 
@@ -359,14 +375,17 @@ public class TypeCheckVisitor implements ASTVisitor {
 					switch(exprType) {
 						case INT -> expr.setCoerceTo(Type.COLOR);
 						case FLOAT -> expr.setCoerceTo(Type.COLORFLOAT);
-						case COLOR, COLORFLOAT -> {
+						case COLOR, COLORFLOAT, IMAGE -> {
 						}
 						default -> {
 							check(false, assignmentStatement, "expressions type and target type are not assignment compatible");
 						}
 					}
 				} else {
-
+					switch(exprType) {
+						case COLOR, COLORFLOAT, FLOAT, INT -> expr.setCoerceTo(Type.COLOR);
+						default -> check(false, assignmentStatement, "expression type is not COLOR, COLORFLOAT, FLOAT or INT");
+					}
 				}
 			}
 			default -> {
@@ -379,6 +398,13 @@ public class TypeCheckVisitor implements ASTVisitor {
 					check(false, assignmentStatement, "compiler error in visitAssignmentStatement");
 				}
 			}
+		}
+
+		dec.setInitialized(true);
+
+		if (pixSelec != null) {
+			symbolTable.remove(pixSelec.getX().getText());
+			symbolTable.remove(pixSelec.getY().getText());
 		}
 
 		return null;
@@ -399,31 +425,55 @@ public class TypeCheckVisitor implements ASTVisitor {
 	@Override
 	public Object visitReadStatement(ReadStatement readStatement, Object arg) throws Exception {
 		//TODO:  implement this method
+		// Done
 		String lhs = readStatement.getName();
 		Declaration dec = symbolTable.lookup(lhs);
 		check(dec != null, readStatement, "undefined identifier" + lhs);
-		check(dec.isInitialized(), readStatement, "using uninitialized variable in read statement");
+		Type targetType = dec.getType();
+
 		readStatement.setTargetDec(dec);
-		Type selector = (Type) readStatement.getSelector().visit(this, arg);
+		PixelSelector selector = readStatement.getSelector();
 		Type rhs = (Type) readStatement.getSource().visit(this, arg);
 		check(selector == null, readStatement, "Read statement cannot have a PixelSelector");
 		check(rhs == Type.CONSOLE || rhs == Type.STRING, readStatement, "Rhs for read statement must be CONSOLE or STRING");
-
-		throw new UnsupportedOperationException("Unimplemented visit method.");
+		if (rhs == Type.CONSOLE) {
+			readStatement.getSource().setCoerceTo(targetType);
+		}
+		dec.setInitialized(true);
+		return null;
+		//throw new UnsupportedOperationException("Unimplemented visit method.");
 	}
 
 	@Override
 	public Object visitVarDeclaration(VarDeclaration declaration, Object arg) throws Exception {
 		//TODO:  implement this method
-		String name = declaration.getName();
-		boolean inserted = symbolTable.insert(name, declaration);
-		check(inserted, declaration, "variable " + name + " already declared");
+		// Done
+		Type lhs = declaration.getType();
 		IToken initializer = declaration.getOp();
+		declaration.getNameDef().visit(this, arg);
 		if (initializer != null) {
+			Type rhs = declaration.getExpr().getType();
+			if (initializer.getKind() == Kind.ASSIGN) {
+				declaration.getNameDef().setInitialized(true);
+
+				if (lhs != rhs) {
+					declaration.getExpr().setCoerceTo(lhs);
+				}
+
+			} else if (initializer.getKind() == Kind.LARROW) {
+				declaration.getNameDef().setInitialized(true);
+
+				if (declaration.getExpr() instanceof ConsoleExpr) {
+					declaration.getExpr().setCoerceTo(lhs);
+				}
+
+			}
 			declaration.getExpr().visit(this, arg);
 		}
-		else {
-			check(false, declaration, "No initializer present in visitVarDeclaration");
+		else if (declaration.getNameDef().getType() == Type.IMAGE){
+			check(declaration.getNameDef().getDim() != null, declaration, "variable image does not have a dimension in varDeclaration");
+			//declaration.getNameDef().visit(this, arg);
+			//check(false, declaration, "No initializer present in visitVarDeclaration");
 		}
 		return null;
 
@@ -433,7 +483,8 @@ public class TypeCheckVisitor implements ASTVisitor {
 
 	@Override
 	public Object visitProgram(Program program, Object arg) throws Exception {		
-		//TODO:  this method is incomplete, finish it.  
+		//TODO:  this method is incomplete, finish it.
+		// Done
 		
 		//Save root of AST so return type can be accessed in return statements
 		root = program;
@@ -443,6 +494,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 		List<NameDef> param = program.getParams();
 		for (NameDef node : param) {
 			node.visit(this,arg);
+			node.setInitialized(true);
 		}
 		
 		//Check declarations and statements
@@ -456,6 +508,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 	@Override
 	public Object visitNameDef(NameDef nameDef, Object arg) throws Exception {
 		//TODO:  implement this method
+		// Done
 		String name = nameDef.getName();
 		boolean inserted = symbolTable.insert(name, nameDef);
 		check(inserted, nameDef, "variable " + name + " already declared");
@@ -467,6 +520,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 	@Override
 	public Object visitNameDefWithDim(NameDefWithDim nameDefWithDim, Object arg) throws Exception {
 		//TODO:  implement this method
+		// Done
 		String name = nameDefWithDim.getName();
 		nameDefWithDim.getDim().visit(this, arg);
 		boolean inserted = symbolTable.insert(name, nameDefWithDim);
@@ -481,6 +535,9 @@ public class TypeCheckVisitor implements ASTVisitor {
 		Type returnType = root.getReturnType();  //This is why we save program in visitProgram.
 		Type expressionType = (Type) returnStatement.getExpr().visit(this, arg);
 		check(returnType == expressionType, returnStatement, "return statement with invalid type");
+		if (returnStatement.getExpr() instanceof IdentExpr) {
+			check(((IdentExpr) returnStatement.getExpr()).getDec().isInitialized(), returnStatement, "variable is not initialized in return statement");
+		}
 		return null;
 	}
 
