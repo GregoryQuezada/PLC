@@ -262,6 +262,9 @@ public class CodeGenVisitor implements ASTVisitor {
 
         sb.append("package ").append(packageName).semi().newline();
         sb.append("import edu.ufl.cise.plc.runtime.ConsoleIO").semi().newline();
+        sb.append("import edu.ufl.cise.plc.runtime.FileURLIO").semi().newline();
+        sb.append("import edu.ufl.cise.plc.runtime.ImageOps").semi().newline();
+        sb.append("import java.awt.image.BufferedImage").semi().newline();
         sb.append("public class ").append(program.getName()).append(" {").newline();
         sb.tab().append("public static ").append(switchTypeBackToString(program.getReturnType())).append(" apply").lparen();
 
@@ -337,9 +340,16 @@ public class CodeGenVisitor implements ASTVisitor {
         IToken op = declaration.getOp();
         Expr expr = declaration.getExpr();
 
-        nameDef.visit(this, sb);
+        if (nameDef.getType() != IMAGE) {
+            nameDef.visit(this, sb);
+        }
+
+
 
         if (op != null) {
+            if (nameDef.getDim() != null) {
+
+            }
             if (op.getKind() == Kind.ASSIGN) {
                 sb.equal();
             }
@@ -347,6 +357,9 @@ public class CodeGenVisitor implements ASTVisitor {
                 sb.larrow();
             }
             expr.visit(this, sb);
+        }
+        else {
+
         }
 
         sb.semi().newline();
