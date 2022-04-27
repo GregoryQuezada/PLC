@@ -8,6 +8,11 @@ public class CodeGenStringBuilder {
         return this;
     }
 
+    public CodeGenStringBuilder append(StringBuilder s) {
+        delegate.append(s.toString());
+        return this;
+    }
+
     public CodeGenStringBuilder comma() {
         delegate.append(",");
         return this;
@@ -59,7 +64,7 @@ public class CodeGenStringBuilder {
     }
 
     public CodeGenStringBuilder larrow() {
-        delegate.append("<-");
+        delegate.append(" <- ");
         return this;
     }
 
@@ -70,6 +75,11 @@ public class CodeGenStringBuilder {
 
     public CodeGenStringBuilder colon() {
         delegate.append(":");
+        return this;
+    }
+
+    public CodeGenStringBuilder insert(int offset, CharSequence sequence) {
+        delegate.insert(offset, sequence);
         return this;
     }
 }
