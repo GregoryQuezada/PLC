@@ -4,6 +4,7 @@ import edu.ufl.cise.plc.ast.*;
 
 import java.util.List;
 
+import static edu.ufl.cise.plc.IToken.Kind.*;
 import static edu.ufl.cise.plc.ast.Types.Type.*;
 import edu.ufl.cise.plc.IToken.Kind;
 import edu.ufl.cise.plc.runtime.ImageOps;
@@ -110,6 +111,7 @@ public class CodeGenVisitor implements ASTVisitor {
             case STRING -> "String";
             case BOOLEAN -> "Boolean";
             case COLOR -> "ColorTuple";
+            case IMAGE -> "BufferedImage";
 
             default -> throw new UnsupportedOperationException("Not implemented yet");
         };
@@ -133,6 +135,7 @@ public class CodeGenVisitor implements ASTVisitor {
             case FLOAT -> sb.append("Please enter a float value. ");
             case STRING -> sb.append("Please enter a string value. ");
             case BOOLEAN -> sb.append("Please enter a boolean value. ");
+            case COLOR -> sb.append("Please enter a color value with the next three inputs. ");
             default -> throw new UnsupportedOperationException("Not yet implemented");
         }
 
@@ -195,7 +198,9 @@ public class CodeGenVisitor implements ASTVisitor {
 
             }
             case IMAGE_OP -> {
-                throw new UnsupportedOperationException("Heck");
+                //throw new UnsupportedOperationException("Heck");
+                expr.visit(this, sb);
+                sb.append("." + oper.getText()).lparen().rparen();
             }
             default -> {
                 throw new UnsupportedOperationException("Not yet implemented unary");
@@ -223,7 +228,14 @@ public class CodeGenVisitor implements ASTVisitor {
         }
         else if (leftType == COLOR && rightType == COLOR) {
             sb.lparen();
-            sb.append("ImageOps.binaryTupleOp( ImageOps.BoolOP.");
+
+            sb.append("ImageOps.binaryTupleOp( ImageOps.");
+
+            if (op == EQUALS || op == NOT_EQUALS) {
+                sb.append("Bool");
+            }
+
+            sb.append("OP.");
             sb.append(op.name()).comma().space();
             binaryExpr.getLeft().visit(this, sb);
             sb.comma().space();
@@ -295,7 +307,14 @@ public class CodeGenVisitor implements ASTVisitor {
     @Override
     public Object visitDimension(Dimension dimension, Object arg) throws Exception {
         CodeGenStringBuilder sb = (CodeGenStringBuilder) arg;
-        sb.append(dimension.getWidth().getText()).comma().space().append(dimension.getHeight().getText()).space();
+        Expr width = dimension.getWidth();
+        Expr height = dimension.getHeight();
+        width.visit(this, sb);
+        sb.comma().space();
+        height.visit(this, sb);
+
+        //sb.append(dimension.getWidth().getText()).comma().space().append(dimension.getHeight().getText()).space();
+
 
         return sb;
     }
@@ -312,22 +331,61 @@ public class CodeGenVisitor implements ASTVisitor {
         String name = assignmentStatement.getName();
         PixelSelector pixSel = assignmentStatement.getSelector();
         Expr expr = assignmentStatement.getExpr();
-        sb.append(name);
+        //sb.append(name);
 
-        if (assignmentStatement.getTargetType() == IMAGE && expr.getType() == IMAGE) {
+        //if (assignmentStatement.getTargetDec().getType() == IMAGE && expr.getType() == IMAGE) {
+        if (expr.getType() == IMAGE) {
+            sb.append(name);
             if (pixSel != null) {
-
+                sb.append("ImageOps.resize");
+                expr.visit(this, sb);
+                sb.semi().newline();
             }
-        }
+            else {
+                sb.equal();
 
-        if (pixSel != null) {
-            throw new UnsupportedOperationException("Not yet implemented assign");
+                if (expr instanceof IdentExpr) {
+                    sb.append("ImageOps.clone(");
+                    expr.visit(this, sb);
+                    sb.rparen();
+                    sb.semi().newline();
+                }
+                else {
+                    sb.append("ImageOps.resize(");
+                    expr.visit(this, sb);
+                    sb.comma().space().append(name + ".getWidth()");
+                    sb.comma().space().append(name + ".getHeight()").rparen();
+                }
+
+                sb.semi().newline();
+            }
+
+
+        }
+        else if (expr.getCoerceTo() == COLOR){
+            sb.append("for (int x = 0; x < " + name + ".getWidth(); x++)").newline();
+            sb.tab().append("for (int y = 0; y < " + name + ".getHeight(); y++)").newline();
+            sb.tab().append("ImageOps.setColor(" + name + ", " + "x, y, ");
+            expr.visit(this, sb);
+            sb.rparen();
+            sb.semi().newline();
+
         }
         else {
+            sb.append(name);
             sb.equal();
             expr.visit(this, sb);
             sb.semi().newline();
         }
+
+        if (pixSel != null) {
+            //throw new UnsupportedOperationException("Not yet implemented assign");
+        }
+//        else {
+//            sb.equal();
+//            expr.visit(this, sb);
+//            sb.semi().newline();
+//        }
 
         return sb;
     }
@@ -501,9 +559,14 @@ public class CodeGenVisitor implements ASTVisitor {
         nameDef.visit(this, sb);
 
 
-
         if (nameDef.getType() == IMAGE) {
-            if (op != null) {
+            if (expr instanceof UnaryExpr) {
+                if (((UnaryExpr) expr).getOp().getKind() == COLOR_OP) {
+                    sb.equal();
+                    expr.visit(this, sb);
+                }
+            }
+            else if (op != null) {
                 if (op.getKind() == Kind.ASSIGN) {
                     sb.equal();
                 }
@@ -512,17 +575,32 @@ public class CodeGenVisitor implements ASTVisitor {
                 }
 
 
+
                 if (nameDef.getDim() != null) {
-                    sb.append("FileURLIO.readImage( ");
+                    if (expr.getType() != STRING) {
+                        sb.append("ImageOps.resize(");
+                    }
+                    else {
+                        sb.append("FileURLIO.readImage( ");
+                    }
                     expr.visit(this, sb);
                     sb.comma().space();
                     dim.visit(this, sb);
                     sb.rparen().semi().newline();
                 }
                 else {
-                    sb.append("FileURLIO.readImage( ");
-                    expr.visit(this, sb);
-                    sb.space().rparen().semi().newline();
+                    if (expr instanceof IdentExpr && expr.getType() != STRING) {
+                        sb.append("ImageOps.clone(");
+                        expr.visit(this, sb);
+                        sb.rparen().semi().newline();
+                    }
+                    else {
+                        sb.append("FileURLIO.readImage( ");
+                        expr.visit(this, sb);
+                        sb.space().rparen().semi().newline();
+                        // Come back
+                    }
+
                 }
 
                 sb.append("FileURLIO.closeFiles()");
@@ -532,6 +610,7 @@ public class CodeGenVisitor implements ASTVisitor {
                 sb.equal();
                 sb.append("new BufferedImage(");
                 dim.visit(this, sb);
+                sb.comma().space();
                 sb.append("BufferedImage.TYPE_INT_RGB)");
             }
         }
